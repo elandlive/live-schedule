@@ -95,6 +95,38 @@
   body.ro #attView input{pointer-events:none;background:#f4f5f9;}
   .robadge{display:none;font-size:11.5px;font-weight:700;color:#2b6cb0;background:#eaf2fd;padding:5px 11px;border-radius:20px;}
   body.ro .robadge{display:inline-flex;}
+  /* 모바일 카드 목록 */
+  .mlist{display:none;}
+  .mday{margin-bottom:14px;}
+  .mdh{font-weight:800;font-size:14px;padding:8px 4px 7px;border-bottom:2px solid var(--line);position:sticky;top:0;background:var(--bg,#fff);z-index:2;}
+  .mdh.sun{color:#e0584e;} .mdh.sat{color:#2f6bd6;}
+  .mcard{display:flex;gap:10px;align-items:flex-start;padding:11px 12px;border:1px solid var(--line);border-left:5px solid var(--none);border-radius:11px;margin-top:8px;background:#fff;}
+  .mcard.conf{border-color:#e0584e;background:#fff3f2;}
+  .mcard.p-naver{border-left-color:var(--pn);} .mcard.p-zigzag{border-left-color:var(--pz);} .mcard.p-gong{border-left-color:var(--pg);} .mcard.p-orange{border-left-color:var(--po);} .mcard.p-none{border-left-color:var(--none);}
+  .mtime{font-family:var(--mono);font-weight:800;font-size:14px;min-width:94px;}
+  .mbody{flex:1;min-width:0;}
+  .mbrand{font-weight:700;font-size:14px;} .mbrand small{color:var(--muted);font-weight:500;font-size:11px;margin-left:5px;}
+  .mmeta{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px;align-items:center;}
+  .mst{font-size:11px;font-weight:700;background:#1f2430;color:#fff;padding:2px 9px;border-radius:20px;} .mst.un{background:#c9ccd6;}
+  .mstaff{font-size:11px;background:#eef0f5;padding:2px 9px;border-radius:20px;} .mstaff.none{color:#c0392b;background:#fdeaea;}
+  .mrev{font-family:var(--mono);font-weight:700;font-size:12.5px;}
+  .mempty{padding:40px 20px;text-align:center;color:var(--muted);line-height:1.7;}
+  @media(max-width:640px){
+    #schedView .board{max-height:none;overflow:visible;border:none;background:none;box-shadow:none;padding:0;}
+    .grid{display:none;} .mlist{display:block;}
+    .wrap{padding:12px;} .top .wrap{padding:14px 12px;}
+    h1{font-size:20px;line-height:1.25;} .top .wrap p,.note{font-size:11px;}
+    .summary{gap:6px;} .summary .stat{padding:6px 9px;flex:1 1 28%;} .summary .stat b{font-size:15px;} .summary .stat small{font-size:10px;}
+    .bar{gap:6px;} .bar .btn{font-size:12px;padding:8px 10px;}
+    .chips{order:5;width:100%;overflow-x:auto;flex-wrap:nowrap;} .chip{font-size:12px;padding:7px 10px;white-space:nowrap;}
+    .autobar{gap:7px;padding:10px;} .autobar .lbl{width:100%;} .autobar select,.autobar .go,.autobar .evlbl{font-size:12px;}
+    .topnav{gap:8px;} .vtab{padding:8px 14px;font-size:13px;} #ymLabel{font-size:15px;min-width:92px;}
+    .atttabs{gap:6px;} .atttab{padding:8px 13px;font-size:13px;}
+    table.att th,table.att td{padding:6px 4px;font-size:12px;}
+    table.att input.tin{width:62px;font-size:12px;padding:5px 4px;} table.att input.cin{width:52px;padding:5px 4px;}
+    .atthint{font-size:11px;}
+    .sharecard{padding:18px 14px;} .lnkbox input{font-size:10.5px;}
+  }
   /* 상단 네비(보기 전환 + 월 이동) */
   .topnav{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
   .viewtabs{display:flex;gap:6px;background:#eef0f5;padding:4px;border-radius:12px;}
@@ -330,7 +362,7 @@
   </div>
   <div id="statsPanel"></div>
 
-  <div class="board"><div class="grid" id="grid"></div></div>
+  <div class="board"><div class="grid" id="grid"></div><div class="mlist" id="mlist"></div></div>
   </div><!-- /schedView -->
 
   <div id="attView" style="display:none">
@@ -802,7 +834,30 @@ function render(){
     });
   });
   if(!DATES.length){const e=document.createElement("div");e.style.cssText="padding:48px 20px;text-align:center;color:var(--muted);font-size:14px;";e.innerHTML=`${ymText(curYM)}에는 편성이 없습니다.<br>“＋ 방송 추가” 또는 “📥 일정 가져오기”로 채워주세요.`;grid.appendChild(e);}
+  buildMobileList(mrows,stu,stf);
   renderStats();
+}
+function buildMobileList(mrows,stu,stf){
+  const ml=$("mlist");if(!ml)return;ml.innerHTML="";
+  const byDate={};mrows.forEach(r=>{(byDate[r.date]=byDate[r.date]||[]).push(r);});
+  const dates=Object.keys(byDate).sort();
+  if(!dates.length){ml.innerHTML=`<div class="mempty">${ymText(curYM)}에는 편성이 없습니다.<br>“＋ 방송 추가”로 채워주세요.</div>`;return;}
+  dates.forEach(d=>{
+    const dow=dowOf(d), day=document.createElement("div");day.className="mday";
+    day.innerHTML=`<div class="mdh ${dow==='일'?'sun':dow==='토'?'sat':''}">${d.slice(5)} (${dow}) · ${byDate[d].length}건</div>`;
+    byDate[d].slice().sort((a,b)=>span(a.time)[0]-span(b.time)[0]).forEach(r=>{
+      const conf=stu.has(r.id)||stf.has(r.id), cat=catOf(r);
+      const card=document.createElement("div");card.className="mcard p-"+cat+(conf?" conf":"");
+      const stuChip=r.studio?`<span class="mst">${r.studio}룸</span>`:`<span class="mst un">미배정</span>`;
+      let right;
+      if(extView){right=`<span class="mrev">${r.revenue?r.revenue+'만':''}</span>`;}
+      else{right=(r.staff&&r.staff.length)?r.staff.map(n=>`<span class="mstaff">${n}${r.roles&&r.roles[n]?'·'+ROLE_LABEL[r.roles[n]]:''}</span>`).join(""):`<span class="mstaff none">스텝 미배정</span>`;}
+      card.innerHTML=`<div class="mtime">${r.time}</div><div class="mbody"><div class="mbrand">${r.brand}${extView?'':`<small>${r.platform||''}</small>`}</div><div class="mmeta">${stuChip} ${right}</div></div>`;
+      if(!extView&&!RO)card.addEventListener("click",ev=>openPicker(r.id,ev));
+      day.appendChild(card);
+    });
+    ml.appendChild(day);
+  });
 }
 
 /* ---------- picker ---------- */
