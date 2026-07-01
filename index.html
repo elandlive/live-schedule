@@ -89,7 +89,7 @@
   .shareopt{display:flex;gap:12px;align-items:flex-start;padding:12px;border:1px solid var(--line);border-radius:12px;cursor:pointer;margin-top:8px;}
   .shareopt:hover{background:#f6f8fd;} .shareopt .ic{font-size:20px;} .shareopt b{font-size:14px;} .shareopt small{display:block;color:var(--muted);font-size:11.5px;margin-top:2px;}
   /* 모드별 숨김 */
-  body.ro #addBtn,body.ro .autobar,body.ro #importBtn,body.ro #resetSeed,body.ro #shareBtn,body.ro #viewToggle,body.ro #csv,body.ro .note{display:none!important;}
+  body.ro #addBtn,body.ro .autobar,body.ro #autoToggle,body.ro #importBtn,body.ro #resetSeed,body.ro #shareBtn,body.ro #viewToggle,body.ro #csv,body.ro .note{display:none!important;}
   body.mode-ext .vtab[data-v="att"]{display:none!important;}
   body.mode-ext .chips,body.mode-ext #staffSel{display:none!important;}
   body.ro #attView input{pointer-events:none;background:#f4f5f9;}
@@ -111,6 +111,11 @@
   .mstaff{font-size:11px;background:#eef0f5;padding:2px 9px;border-radius:20px;} .mstaff.none{color:#c0392b;background:#fdeaea;}
   .mrev{font-family:var(--mono);font-weight:700;font-size:12.5px;}
   .mempty{padding:40px 20px;text-align:center;color:var(--muted);line-height:1.7;}
+  .daymemo{display:inline-block;margin:6px 0 0 10px;font-size:12px;color:#3f4a63;background:#fff8e6;border:1px solid #f0e2b8;border-radius:8px;padding:3px 10px;cursor:pointer;max-width:90%;white-space:pre-wrap;}
+  .daymemo.empty{color:#aab0bf;background:none;border:1px dashed var(--line);}
+  .mmemo{margin:6px 0 0;font-size:12.5px;color:#3f4a63;background:#fff8e6;border:1px solid #f0e2b8;border-radius:9px;padding:7px 11px;cursor:pointer;white-space:pre-wrap;}
+  .mmemo.empty{color:#aab0bf;background:none;border:1px dashed var(--line);}
+  body.ext .daymemo,body.ext .mmemo{display:none!important;}
   @media(max-width:640px){
     #schedView .board{max-height:none;overflow:visible;border:none;background:none;box-shadow:none;padding:0;}
     .grid{display:none;} .mlist{display:block;}
@@ -153,6 +158,8 @@
   table.att input.cin.has{border-color:#1f8a4c;background:#eefaf1;font-weight:700;}
   .atthint{font-size:12px;color:var(--muted);background:#f4f6fb;border:1px solid var(--line);border-radius:9px;padding:8px 12px;margin-bottom:12px;line-height:1.6;}
   table.att td.wh{font-family:var(--mono);font-weight:700;}
+  table.att .tag{font-family:var(--sans,inherit);font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:20px;vertical-align:middle;}
+  table.att .tag.we{background:#fdeef0;color:#d6336c;} table.att .tag.br{background:#eef2f8;color:#5566aa;}
   tr.wkrow td{background:#f7f9ff;font-weight:700;color:#2c3550;border-top:2px solid #dfe6f5;}
   tr.wkrow td.ot{color:#c0392b;} tr.wkrow td.comp{color:#1f8a4c;}
   .attsum{display:flex;flex-wrap:wrap;gap:12px;margin-top:14px;align-items:center;}
@@ -330,6 +337,7 @@
 
   <div class="bar">
     <button class="btn add" id="addBtn">＋ 방송 추가</button>
+    <button class="btn" id="autoToggle">⚙️ 스텝 자동배정 ▾</button>
     <div class="chips" role="group" aria-label="플랫폼 강조">
       <button class="chip" data-s="all" aria-pressed="true">전체</button>
       <button class="chip" data-s="none" aria-pressed="false"><span class="dot" style="background:var(--none)"></span>미배정</button>
@@ -348,7 +356,7 @@
     <button class="btn ghost" id="resetSeed">기본값 복원</button>
   </div>
 
-  <div class="autobar">
+  <div class="autobar" id="autobar" style="display:none">
     <span class="lbl">스텝 자동배정</span>
     <select id="optN"><option value="1">방송당 1명</option><option value="2" selected>방송당 2명</option></select>
     <select id="optCap"><option value="2">상주 1일 2회</option><option value="3" selected>상주 1일 3회</option></select>
@@ -444,12 +452,11 @@
   <h3>🔗 공유 · 배포</h3>
   <p class="sub">실시간 동기화가 켜져 있으면, 관리자가 수정하는 즉시 아래 링크들에 자동 반영됩니다.</p>
   <div id="rtState" class="rtstate"></div>
-  <div class="lnkrow"><b>관리자용</b><small>편집 + 실시간 송신</small><div class="lnkbox"><input id="lnkAdmin" readonly><button data-c="lnkAdmin">복사</button></div></div>
-  <div class="lnkrow"><b>스텝 공유용</b><small>편성·근태 보기 전용(수정 불가)</small><div class="lnkbox"><input id="lnkStaff" readonly><button data-c="lnkStaff">복사</button></div></div>
-  <div class="lnkrow"><b>외부 공유용</b><small>브랜드·시간·목표매출만</small><div class="lnkbox"><input id="lnkExt" readonly><button data-c="lnkExt">복사</button></div></div>
+  <div class="lnkrow"><b>내부 공유용</b><small>전체 권한(편집 가능)</small><div class="lnkbox"><input id="lnkAdmin" readonly><button data-c="lnkAdmin">복사</button></div></div>
+  <div class="lnkrow"><b>외부 공유용</b><small>브랜드·시간·목표매출만 · 근태/스텝 배정 안 보임</small><div class="lnkbox"><input id="lnkExt" readonly><button data-c="lnkExt">복사</button></div></div>
   <div class="dlrow">
-    <small>아직 인터넷에 올리기 전이면, 아래로 파일을 받아 배포할 수도 있어요(실시간 연결 포함).</small>
-    <div><button class="btn" data-snap="staff">스텝용 파일</button> <button class="btn" data-snap="ext">외부용 파일</button></div>
+    <small>인터넷에 올리기 전이면, 아래로 파일을 받아 전달할 수도 있어요(실시간 연결 포함).</small>
+    <div><button class="btn" data-snap="ext">외부용 파일 받기</button></div>
   </div>
   <div style="border-top:1px solid var(--line);margin:14px 0 10px;"></div>
   <div class="shareopt" id="rtSetup"><span class="ic">⚡</span><div><b>실시간 동기화 설정</b><small>Firebase 연결/방 변경. 이미 연결돼 있으면 그대로 두면 됩니다.</small></div></div>
@@ -548,7 +555,7 @@ const KEY="studio_month_2607_v5", HOURW=92, LANEH=70;
 /* ---- 모드 / 실시간 ---- */
 const SNAP=(typeof window!=="undefined"&&window.__SNAP__)?window.__SNAP__:null;
 const MODE=(typeof window!=="undefined"&&window.__MODE__)?window.__MODE__:(new URLSearchParams(location.search).get("mode")||"admin");
-const RO=MODE!=="admin";
+const RO=(MODE==="ext");
 const DEFAULT_FB={config:{apiKey:"AIzaSyDlPLe7gQLF5M0LZ-EzFZqpJgpvR1JyUe4",authDomain:"live-5d24f.firebaseapp.com",databaseURL:"https://live-5d24f-default-rtdb.firebaseio.com",projectId:"live-5d24f",storageBucket:"live-5d24f.firebasestorage.app",messagingSenderId:"310664592165",appId:"1:310664592165:web:495ecbab2d384a36b078cc"},roomId:"main"};
 let FBCFG=(typeof window!=="undefined"&&window.__FB__)?window.__FB__:null;
 if(!FBCFG){try{FBCFG=JSON.parse(localStorage.getItem("studio_fb_cfg")||"null");}catch(e){FBCFG=null;}}
@@ -697,7 +704,7 @@ let _uid=0; const uid=()=>"r"+(Date.now().toString(36))+(_uid++);
 
 function seedRows(){return SEED.map(r=>({id:uid(),date:r[0],time:r[2],brand:r[3],platform:r[4],pd:r[5],host:r[6],revenue:r[7],status:r[8],studio:"",crew:2,staff:[],roles:{},pin:{},ban:{}}));}
 
-let curYM="2026.07", view="schedule", attPerson="박채은", att={}, compUse={};
+let curYM="2026.07", view="schedule", attPerson="박채은", att={}, compUse={}, memos={};
 const ATT_PEOPLE=["박채은","박준우","김수정","신권수"];
 let rows, unavail, evBudget=40;
 const _norm=r=>({staff:[],studio:"",crew:2,roles:{},pin:{},ban:{},...r,crew:(r.crew===1||r.crew===2)?r.crew:2,staff:Array.isArray(r.staff)?r.staff:[],roles:r.roles&&typeof r.roles==="object"?r.roles:{},pin:r.pin&&typeof r.pin==="object"?r.pin:{},ban:r.ban&&typeof r.ban==="object"?r.ban:{}});
@@ -706,7 +713,7 @@ const _score=o=>o.rows.reduce((s,r)=>s+(r.studio?1:0)+((Array.isArray(r.staff)&&
 let _best=null;
 if(SNAP&&Array.isArray(SNAP.rows)){_best={o:SNAP,sc:1};}
 else[KEY,"studio_month_2607_v4","studio_month_2607_v3"].forEach(k=>{const o=_read(k);if(!o)return;const sc=_score(o);if(!_best||sc>_best.sc)_best={o,sc};});
-if(_best){rows=(_best.o.rows||[]).map(_norm);unavail=_best.o.unavail&&typeof _best.o.unavail==="object"?_best.o.unavail:{};if(Number.isFinite(_best.o.evBudget))evBudget=_best.o.evBudget;att=_best.o.att&&typeof _best.o.att==="object"?_best.o.att:{};compUse=_best.o.compUse&&typeof _best.o.compUse==="object"?_best.o.compUse:{};if(typeof _best.o.curYM==="string")curYM=_best.o.curYM;}
+if(_best){rows=(_best.o.rows||[]).map(_norm);unavail=_best.o.unavail&&typeof _best.o.unavail==="object"?_best.o.unavail:{};if(Number.isFinite(_best.o.evBudget))evBudget=_best.o.evBudget;att=_best.o.att&&typeof _best.o.att==="object"?_best.o.att:{};compUse=_best.o.compUse&&typeof _best.o.compUse==="object"?_best.o.compUse:{};memos=_best.o.memos&&typeof _best.o.memos==="object"?_best.o.memos:{};if(typeof _best.o.curYM==="string")curYM=_best.o.curYM;}
 else{
   rows=seedRows();unavail={};
   try{const o2=JSON.parse(localStorage.getItem("studio_month_2607_v2"));
@@ -727,7 +734,7 @@ const isComplete=r=>r.staff.some(n=>roleOfR(r,n)==="cam")&&r.staff.some(n=>roleO
 function platKey(p){p=p||"";if(p.indexOf("네이버")>=0)return "naver";if(p.indexOf("지그재그")>=0)return "zigzag";if(p.indexOf("공홈")>=0)return "gong";if(p.indexOf("키디키디")>=0||p.indexOf("이랜드몰")>=0)return "orange";return "none";}
 const catOf=r=>extView?platKey(r.platform):(isComplete(r)?platKey(r.platform):"none");
 const save=()=>{
-  if(!SNAP){try{localStorage.setItem(KEY,JSON.stringify({v:5,rows,unavail,evBudget,att,compUse,curYM}));}catch(e){}}
+  if(!SNAP){try{localStorage.setItem(KEY,JSON.stringify({v:5,rows,unavail,evBudget,att,compUse,memos,curYM}));}catch(e){}}
   if(fbRef&&MODE==="admin"&&!fbApplying){clearTimeout(fbWriteT);fbWriteT=setTimeout(()=>{const ts=Date.now();myLastTs=ts;
     fbRef.set({rows,unavail,evBudget,att,compUse,curYM,ts}).then(()=>fbStatus("실시간 반영됨","ok")).catch(e=>fbStatus("쓰기 실패: "+e.message,"err"));},450);}
 };
@@ -752,6 +759,8 @@ function layout(items){
   flush();return items;
 }
 
+const esc=s=>(s||"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function editMemo(d){if(RO)return;const cur=memos[d]||"";const v=prompt(`${d.slice(5)} 메모`,cur);if(v===null)return;const t=v.trim();if(t)memos[d]=t;else delete memos[d];save();view==="att"?renderAtt():render();}
 function render(){
   $("ymLabel").textContent=ymText(curYM);
   const {stu,stf}=conflicts();
@@ -809,8 +818,10 @@ function render(){
     const done=drows.filter(r=>r.studio).length;
     const w=dowOf(d),wc=w==="토"?"sat":w==="일"?"sun":"";
     const dh=document.createElement("div");dh.className="dayhead";
-    dh.innerHTML=`<div class="datecell dhd"><div class="d">${d.slice(5)}</div><div class="w ${wc}">${w}요일</div><div class="prog">${done}/${drows.length} 배정</div></div><div class="dhtrack"></div>`;
+    const memo=memos[d]||"", memoHtml=(MODE==="ext")?"":`<div class="daymemo${memo?'':' empty'}" data-memo="${d}">${memo?esc(memo):'＋ 메모'}</div>`;
+    dh.innerHTML=`<div class="datecell dhd"><div class="d">${d.slice(5)}</div><div class="w ${wc}">${w}요일</div><div class="prog">${done}/${drows.length} 배정</div></div><div class="dhtrack">${memoHtml}</div>`;
     grid.appendChild(dh);
+    const dmm=dh.querySelector(".daymemo[data-memo]");if(dmm)dmm.addEventListener("click",()=>editMemo(d));
     STUD.forEach(([sv,slab])=>{
       const laneRows=drows.filter(r=>(r.studio||"")===sv);
       if(!laneRows.length)return;
@@ -844,7 +855,9 @@ function buildMobileList(mrows,stu,stf){
   if(!dates.length){ml.innerHTML=`<div class="mempty">${ymText(curYM)}에는 편성이 없습니다.<br>“＋ 방송 추가”로 채워주세요.</div>`;return;}
   dates.forEach(d=>{
     const dow=dowOf(d), day=document.createElement("div");day.className="mday";
-    day.innerHTML=`<div class="mdh ${dow==='일'?'sun':dow==='토'?'sat':''}">${d.slice(5)} (${dow}) · ${byDate[d].length}건</div>`;
+    const memo=memos[d]||"", memoHtml=(MODE==="ext")?"":`<div class="mmemo${memo?'':' empty'}" data-memo="${d}">${memo?"📝 "+esc(memo):'＋ 메모 추가'}</div>`;
+    day.innerHTML=`<div class="mdh ${dow==='일'?'sun':dow==='토'?'sat':''}">${d.slice(5)} (${dow}) · ${byDate[d].length}건</div>${memoHtml}`;
+    const mmm=day.querySelector(".mmemo[data-memo]");if(mmm)mmm.addEventListener("click",()=>editMemo(d));
     byDate[d].slice().sort((a,b)=>span(a.time)[0]-span(b.time)[0]).forEach(r=>{
       const conf=stu.has(r.id)||stf.has(r.id), cat=catOf(r);
       const card=document.createElement("div");card.className="mcard p-"+cat+(conf?" conf":"");
@@ -1133,24 +1146,31 @@ function fmtTime(raw){
   h=Math.min(23,Math.max(0,h));m=Math.min(59,Math.max(0,m));
   return String(h).padStart(2,"0")+":"+String(m).padStart(2,"0");
 }
+const isWknd=dow=>dow==="토"||dow==="일";
+function dayNet(dow,raw){return isWknd(dow)?raw:(raw>=540?raw-60:raw);}  // 평일 9h↑ → 휴게1h 공제
+function whCell(r){if(!r.raw)return "-";if(r.wknd)return hm(r.raw)+' <span class="tag we">주말</span>';if(r.raw>=540)return hm(r.net)+' <span class="tag br">휴게-1h</span>';return hm(r.net);}
 function attData(person,ym){
-  const dates=monthDates(ym), week={};
-  const dayInfo=dates.map(d=>{const a=(att[person]&&att[person][d])||{};const wm=(a.in&&a.out)?workMin(a.in,a.out):0;const wk=wkOf(d);week[wk]=(week[wk]||0)+wm;const comp=(compUse[person]&&compUse[person][d])||0;return {d,dow:dowOf(d),wk,in:a.in||"",out:a.out||"",wm,comp};});
-  let genComp=0; const wkComp={};
-  Object.keys(week).forEach(wk=>{const h=week[wk]/60, ot=Math.max(0,h-40), comp=ot*1.5;wkComp[wk]=comp;genComp+=comp;});
+  const dates=monthDates(ym), wd={}, we={};
+  const dayInfo=dates.map(d=>{const a=(att[person]&&att[person][d])||{};const raw=(a.in&&a.out)?workMin(a.in,a.out):0;const dow=dowOf(d),wk=wkOf(d),wknd=isWknd(dow),net=dayNet(dow,raw);
+    if(wknd)we[wk]=(we[wk]||0)+raw;else wd[wk]=(wd[wk]||0)+net;
+    const comp=(compUse[person]&&compUse[person][d])||0;
+    return {d,dow,wk,in:a.in||"",out:a.out||"",raw,net,wknd,comp};});
+  let genComp=0; const wkComp={}, weeks=new Set([...Object.keys(wd),...Object.keys(we)]);
+  weeks.forEach(wk=>{const wdH=(wd[wk]||0)/60, weH=(we[wk]||0)/60, otH=Math.max(0,wdH-40), comp=otH*1.5+weH*1.5;wkComp[wk]=comp;genComp+=comp;});
   const used=dayInfo.reduce((s,r)=>s+r.comp,0);
-  return {dayInfo,week,wkComp,genComp,used,remain:genComp-used};
+  return {dayInfo,wd,we,wkComp,genComp,used,remain:genComp-used};
 }
-function wkRow(wk,D){const mins=D.week[wk]||0, h=mins/60, ot=Math.max(0,h-40), comp=D.wkComp[wk]||0;
-  return `<tr class="wkrow"><td colspan="3">${wk}주차 합계</td><td class="wh" data-wkh="${wk}">${h.toFixed(1)}h</td>`+
-    `<td data-wkc="${wk}" class="${ot>0?'ot':''}">${ot>0?`초과 ${ot.toFixed(1)}h → `:'40h 이하 · '}<span class="comp">대휴 ${comp.toFixed(1)}h</span></td></tr>`;
+function wkRow(wk,D){const wdH=(D.wd[wk]||0)/60, weH=(D.we[wk]||0)/60, otH=Math.max(0,wdH-40), comp=D.wkComp[wk]||0;
+  return `<tr class="wkrow"><td colspan="3">${wk}주차 합계</td><td class="wh" data-wkh="${wk}">평일 ${wdH.toFixed(1)}h</td>`+
+    `<td data-wkc="${wk}" class="${comp>0?'ot':''}">${otH>0?`초과 ${otH.toFixed(1)}h `:''}${weH>0?`· 주말 ${weH.toFixed(1)}h `:''}→ <span class="comp">대휴 ${comp.toFixed(1)}h</span></td></tr>`;
 }
 function recalcAtt(){
   const D=attData(attPerson,curYM), body=$("attBody");
-  D.dayInfo.forEach(r=>{const c=body.querySelector(`[data-wh="${r.d}"]`);if(c)c.textContent=r.wm?hm(r.wm):"-";});
-  Object.keys(D.week).forEach(wk=>{const h=D.week[wk]/60, ot=Math.max(0,h-40), comp=D.wkComp[wk]||0;
-    const wh=body.querySelector(`[data-wkh="${wk}"]`);if(wh)wh.textContent=h.toFixed(1)+"h";
-    const wc=body.querySelector(`[data-wkc="${wk}"]`);if(wc){wc.className=ot>0?"ot":"";wc.innerHTML=(ot>0?`초과 ${ot.toFixed(1)}h → `:"40h 이하 · ")+`<span class="comp">대휴 ${comp.toFixed(1)}h</span>`;}
+  D.dayInfo.forEach(r=>{const c=body.querySelector(`[data-wh="${r.d}"]`);if(c)c.innerHTML=whCell(r);});
+  const weeks=new Set([...Object.keys(D.wd),...Object.keys(D.we)]);
+  weeks.forEach(wk=>{const wdH=(D.wd[wk]||0)/60, weH=(D.we[wk]||0)/60, otH=Math.max(0,wdH-40), comp=D.wkComp[wk]||0;
+    const wh=body.querySelector(`[data-wkh="${wk}"]`);if(wh)wh.textContent=`평일 ${wdH.toFixed(1)}h`;
+    const wc=body.querySelector(`[data-wkc="${wk}"]`);if(wc){wc.className=comp>0?"ot":"";wc.innerHTML=`${otH>0?`초과 ${otH.toFixed(1)}h `:''}${weH>0?`· 주말 ${weH.toFixed(1)}h `:''}→ <span class="comp">대휴 ${comp.toFixed(1)}h</span>`;}
   });
   const g=body.querySelector('[data-sum="gen"]');if(g)g.textContent=D.genComp.toFixed(1)+"h";
   const u=body.querySelector('[data-sum="used"]');if(u)u.textContent=D.used.toFixed(1)+"h";
@@ -1161,7 +1181,7 @@ function renderAtt(){
   const tabs=$("attTabs");tabs.innerHTML="";
   ATT_PEOPLE.forEach(p=>{const b=document.createElement("button");b.className="atttab"+(p===attPerson?" on":"");b.textContent=p;b.addEventListener("click",()=>{attPerson=p;renderAtt();});tabs.appendChild(b);});
   const D=attData(attPerson,curYM);
-  let html=`<div class="attwrap"><div class="atthint">⌨️ 출퇴근은 숫자만 입력하면 됩니다 — 예: <b>0900</b>→09:00, <b>2200</b>→22:00. · 대휴를 쓴 날은 “대휴” 칸에 시간을 적으면 잔여에서 자동 차감됩니다.</div>`;
+  let html=`<div class="attwrap"><div class="atthint">⌨️ 출퇴근은 숫자만 입력 — 예: <b>0900</b>→09:00, <b>2200</b>→22:00.<br>· <b>평일</b>은 9시간 근무 시 휴게 1시간을 빼고 <b>8시간</b>으로 인정됩니다.<br>· <b>주말(토·일)</b> 근무는 그 시간의 <b>1.5배</b>가 대휴로 발생합니다.<br>· 대휴 쓴 날은 “대휴” 칸에 시간을 적으면 잔여에서 자동 차감됩니다.</div>`;
   html+=`<table class="att"><thead><tr><th>날짜</th><th>출근</th><th>퇴근</th><th>근무시간</th><th>대휴 사용(시간)</th></tr></thead><tbody>`;
   let lastWk=0;
   D.dayInfo.forEach(r=>{
@@ -1171,7 +1191,7 @@ function renderAtt(){
     html+=`<tr><td class="dt ${dc}">${r.d.slice(5)} (${r.dow})</td>`+
       `<td><input type="text" inputmode="numeric" class="tin" data-d="${r.d}" data-f="in" value="${r.in}" maxlength="5" placeholder="--:--" ${RO?'disabled':''}></td>`+
       `<td><input type="text" inputmode="numeric" class="tin" data-d="${r.d}" data-f="out" value="${r.out}" maxlength="5" placeholder="--:--" ${RO?'disabled':''}></td>`+
-      `<td class="wh" data-wh="${r.d}">${r.wm?hm(r.wm):"-"}</td>`+
+      `<td class="wh" data-wh="${r.d}">${whCell(r)}</td>`+
       `<td><input type="number" class="cin ${r.comp?'has':''}" data-d="${r.d}" min="0" step="0.5" value="${r.comp||''}" placeholder="0" ${RO?'disabled':''}></td></tr>`;
   });
   if(lastWk!==0)html+=wkRow(lastWk,D);
@@ -1203,8 +1223,8 @@ function renderAtt(){
 }
 
 /* ---------- 모드 적용(공유 링크) ---------- */
-if(MODE==="staff")document.body.classList.add("ro","mode-staff");
-else if(MODE==="ext")document.body.classList.add("ro","mode-ext","ext");
+if(MODE==="ext")document.body.classList.add("ro","mode-ext","ext");
+if($("autoToggle"))$("autoToggle").addEventListener("click",()=>{const a=$("autobar");const open=a.style.display==="none";a.style.display=open?"flex":"none";$("autoToggle").textContent="⚙️ 스텝 자동배정 "+(open?"▴":"▾");});
 
 /* ---------- 실시간(Firebase) ---------- */
 function fbStatus(msg,cls){const el=$("fbStatus");if(!el)return;el.className="fbpill show "+(cls||"mut");el.textContent=(cls==="ok"?"● ":cls==="err"?"▲ ":"○ ")+msg;}
@@ -1216,11 +1236,12 @@ function applyRemote(v){
   if(Number.isFinite(v.evBudget))evBudget=v.evBudget;
   att=v.att&&typeof v.att==="object"?v.att:{};
   compUse=v.compUse&&typeof v.compUse==="object"?v.compUse:{};
+  memos=v.memos&&typeof v.memos==="object"?v.memos:{};
   fbApplying=false;
   if($("evBudget"))$("evBudget").value=evBudget;
   view==="att"?renderAtt():render();
 }
-function fbPush(){const ts=Date.now();myLastTs=ts;return fbRef.set({rows,unavail,evBudget,att,compUse,curYM,ts});}
+function fbPush(){const ts=Date.now();myLastTs=ts;return fbRef.set({rows,unavail,evBudget,att,compUse,memos,curYM,ts});}
 function fbInit(tries){
   if(!FBCFG||!FBCFG.config||!FBCFG.roomId)return;
   if(typeof firebase==="undefined"){if((tries||0)<30){fbStatus("실시간 준비중…","mut");setTimeout(()=>fbInit((tries||0)+1),200);return;}fbStatus("연결 실패(인터넷 확인)","err");return;}
@@ -1250,13 +1271,12 @@ function baseURL(){return location.origin+location.pathname;}
 function fillLinks(){
   const b=baseURL();
   if($("lnkAdmin"))$("lnkAdmin").value=b;
-  if($("lnkStaff"))$("lnkStaff").value=b+"?mode=staff";
   if($("lnkExt"))$("lnkExt").value=b+"?mode=ext";
   const on=!!fbRef, st=$("rtState");
   if(st){st.className="rtstate "+(on?"on":"off");st.textContent=on?"● 실시간 동기화 켜짐 — 수정 즉시 모든 링크에 반영됩니다.":"○ 실시간 미연결 — ⚡ 실시간 동기화 설정에서 연결하세요.";}
 }
 function buildShare(mode){
-  const data={rows,unavail,evBudget,att,compUse,curYM};
+  const data={rows,unavail,evBudget,att,compUse,memos,curYM};
   let html=document.documentElement.outerHTML;
   html=html.replace(/<script>window\.__SNAP__=[\s\S]*?<\/script>\n?/,"");
   let inj=`window.__SNAP__=${JSON.stringify(data)};window.__MODE__=${JSON.stringify(mode)};`;
@@ -1271,7 +1291,7 @@ if($("shareBtn")){
   $("shareX").addEventListener("click",()=>$("shareMenu").classList.remove("show"));
   $("shareMenu").addEventListener("click",e=>{if(e.target===$("shareMenu"))$("shareMenu").classList.remove("show");});
   document.querySelectorAll(".lnkbox button[data-c]").forEach(b=>b.addEventListener("click",()=>{const inp=$(b.dataset.c);inp.select();try{navigator.clipboard.writeText(inp.value);}catch(e){try{document.execCommand("copy");}catch(_){}}toast("링크를 복사했습니다");}));
-  document.querySelectorAll("button[data-snap]").forEach(b=>b.addEventListener("click",()=>{buildShare(b.dataset.snap);toast((b.dataset.snap==="staff"?"스텝용":"외부용")+" 파일을 내려받았습니다");}));
+  document.querySelectorAll("button[data-snap]").forEach(b=>b.addEventListener("click",()=>{buildShare(b.dataset.snap);toast("외부용 파일을 내려받았습니다");}));
   $("rtSetup").addEventListener("click",()=>{$("shareMenu").classList.remove("show");$("rtRoom").value=FBCFG.roomId||"main";$("rtMenu").classList.add("show");});
   $("deployHelp").addEventListener("click",()=>{$("shareMenu").classList.remove("show");$("dpMenu").classList.add("show");});
 }
