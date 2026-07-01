@@ -151,6 +151,7 @@
   table.att th{position:sticky;top:0;background:#f4f5f9;font-size:12px;color:#55607a;z-index:2;}
   table.att td.dt{text-align:left;font-weight:600;}
   table.att td.sun{color:#e0584e;} table.att td.sat{color:#2f6bd6;}
+  table.att td.dt.out{opacity:.5;font-style:italic;}
   table.att input[type=time]{border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-family:var(--mono);font-size:12.5px;width:104px;}
   table.att input.tin{border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-family:var(--mono);font-size:13px;width:84px;text-align:center;letter-spacing:1px;}
   table.att input.tin:focus{outline:none;border-color:#2b6cb0;box-shadow:0 0 0 2px rgba(43,108,176,.18);}
@@ -1155,29 +1156,24 @@ function fmtTime(raw){
 const isWknd=dow=>dow==="토"||dow==="일";
 function dayNet(dow,raw){return isWknd(dow)?raw:(raw>60?raw-60:raw);}  // 평일: 점심 1시간 공제
 function whCell(r){if(!r.raw)return "-";if(r.wknd)return hm(r.raw)+' <span class="tag we">주말</span>';if(r.raw>60)return hm(r.net)+' <span class="tag br">휴게-1h</span>';return hm(r.net);}
+function ymdToDate(d){const[y,m,dd]=d.split(".").map(Number);return new Date(y,m-1,dd);}
+function dateToYmd(dt){return `${dt.getFullYear()}.${String(dt.getMonth()+1).padStart(2,"0")}.${String(dt.getDate()).padStart(2,"0")}`;}
+function mondayOf(d){const dt=ymdToDate(d);const off=(dt.getDay()+6)%7;dt.setDate(dt.getDate()-off);return dt;}
+function weekMonthKey(mon){const th=new Date(mon);th.setDate(th.getDate()+3);return `${th.getFullYear()}.${String(th.getMonth()+1).padStart(2,"0")}`;} // 그 주 목요일이 속한 달
+function monthWeeks(ym){let mon=mondayOf(ym+".01");mon.setDate(mon.getDate()-7);const weeks=[];for(let k=0;k<8;k++){if(weekMonthKey(mon)===ym){const dates=[];for(let i=0;i<7;i++){const dt=new Date(mon);dt.setDate(mon.getDate()+i);dates.push(dateToYmd(dt));}weeks.push(dates);}mon.setDate(mon.getDate()+7);}return weeks;}
 function attData(person,ym){
-  const dates=monthDates(ym), wd={}, we={};
-  const dayInfo=dates.map(d=>{const a=(att[person]&&att[person][d])||{};const raw=(a.in&&a.out)?workMin(a.in,a.out):0;const dow=dowOf(d),wk=wkOf(d),wknd=isWknd(dow),net=dayNet(dow,raw);
-    if(wknd)we[wk]=(we[wk]||0)+raw;else wd[wk]=(wd[wk]||0)+net;
-    const comp=(compUse[person]&&compUse[person][d])||0;
-    return {d,dow,wk,in:a.in||"",out:a.out||"",raw,net,wknd,comp};});
-  let genComp=0; const wkComp={}, weeks=new Set([...Object.keys(wd),...Object.keys(we)]);
-  weeks.forEach(wk=>{const wdH=(wd[wk]||0)/60, weH=(we[wk]||0)/60, otH=Math.max(0,wdH-40), comp=otH*1.5+weH*1.5;wkComp[wk]=comp;genComp+=comp;});
-  const used=dayInfo.reduce((s,r)=>s+r.comp,0);
-  return {dayInfo,wd,we,wkComp,genComp,used,remain:genComp-used};
+  const weeks=monthWeeks(ym), dayInfo=[], wkStat=[]; let genComp=0;
+  weeks.forEach((dates,idx)=>{const num=idx+1;let wd=0,we=0;
+    dates.forEach(d=>{const a=(att[person]&&att[person][d])||{};const raw=(a.in&&a.out)?workMin(a.in,a.out):0;const dow=dowOf(d),wknd=isWknd(dow),net=dayNet(dow,raw);if(wknd)we+=raw;else wd+=net;const comp=(compUse[person]&&compUse[person][d])||0;dayInfo.push({d,dow,wknum:num,in:a.in||"",out:a.out||"",raw,net,wknd,comp,inMonth:d.slice(0,7)===ym});});
+    const wdH=wd/60,weH=we/60,otH=Math.max(0,wdH-40),comp=otH*1.5+weH*1.5;genComp+=comp;wkStat.push({num,wdH,weH,otH,comp});});
+  return {dayInfo,wkStat,genComp};
 }
-function wkRow(wk,D){const wdH=(D.wd[wk]||0)/60, weH=(D.we[wk]||0)/60, otH=Math.max(0,wdH-40), comp=D.wkComp[wk]||0;
-  return `<tr class="wkrow"><td colspan="3">${wk}주차 합계</td><td class="wh" data-wkh="${wk}">평일 ${wdH.toFixed(1)}h</td>`+
-    `<td data-wkc="${wk}" class="${comp>0?'ot':''}">${otH>0?`초과 ${otH.toFixed(1)}h `:''}${weH>0?`· 주말 ${weH.toFixed(1)}h `:''}→ <span class="comp">대휴 ${comp.toFixed(1)}h</span></td></tr>`;
-}
+function wkRow(s){return `<tr class="wkrow"><td colspan="3">${s.num}주차 합계</td><td class="wh" data-wkh="${s.num}">평일 ${s.wdH.toFixed(1)}h</td>`+
+  `<td data-wkc="${s.num}" class="${s.comp>0?'ot':''}">${s.otH>0?`초과 ${s.otH.toFixed(1)}h `:''}${s.weH>0?`· 주말 ${s.weH.toFixed(1)}h `:''}→ <span class="comp">대휴 ${s.comp.toFixed(1)}h</span></td></tr>`;}
 function recalcAtt(){
   const D=attData(attPerson,curYM), body=$("attBody");
   D.dayInfo.forEach(r=>{const c=body.querySelector(`[data-wh="${r.d}"]`);if(c)c.innerHTML=whCell(r);});
-  const weeks=new Set([...Object.keys(D.wd),...Object.keys(D.we)]);
-  weeks.forEach(wk=>{const wdH=(D.wd[wk]||0)/60, weH=(D.we[wk]||0)/60, otH=Math.max(0,wdH-40), comp=D.wkComp[wk]||0;
-    const wh=body.querySelector(`[data-wkh="${wk}"]`);if(wh)wh.textContent=`평일 ${wdH.toFixed(1)}h`;
-    const wc=body.querySelector(`[data-wkc="${wk}"]`);if(wc){wc.className=comp>0?"ot":"";wc.innerHTML=`${otH>0?`초과 ${otH.toFixed(1)}h `:''}${weH>0?`· 주말 ${weH.toFixed(1)}h `:''}→ <span class="comp">대휴 ${comp.toFixed(1)}h</span>`;}
-  });
+  D.wkStat.forEach(s=>{const wh=body.querySelector(`[data-wkh="${s.num}"]`);if(wh)wh.textContent=`평일 ${s.wdH.toFixed(1)}h`;const wc=body.querySelector(`[data-wkc="${s.num}"]`);if(wc){wc.className=s.comp>0?"ot":"";wc.innerHTML=`${s.otH>0?`초과 ${s.otH.toFixed(1)}h `:''}${s.weH>0?`· 주말 ${s.weH.toFixed(1)}h `:''}→ <span class="comp">대휴 ${s.comp.toFixed(1)}h</span>`;}});
   const g=body.querySelector('[data-sum="gen"]');if(g)g.textContent=D.genComp.toFixed(1)+"h";
   const B=compBalance(attPerson);
   const tg=body.querySelector('[data-sum="tgen"]');if(tg)tg.textContent=B.totalGen.toFixed(1)+"h";
@@ -1186,7 +1182,7 @@ function recalcAtt(){
 }
 function allWeeksComp(person){
   const A=att[person]||{}, wkmap={};
-  Object.keys(A).forEach(d=>{const a=A[d];if(!a||!a.in||!a.out)return;const raw=workMin(a.in,a.out);if(!raw)return;const dow=dowOf(d),key=d.slice(0,7)+"|"+wkOf(d);wkmap[key]=wkmap[key]||{wd:0,we:0};if(isWknd(dow))wkmap[key].we+=raw;else wkmap[key].wd+=dayNet(dow,raw);});
+  Object.keys(A).forEach(d=>{const a=A[d];if(!a||!a.in||!a.out)return;const raw=workMin(a.in,a.out);if(!raw)return;const dow=dowOf(d),key=dateToYmd(mondayOf(d));wkmap[key]=wkmap[key]||{wd:0,we:0};if(isWknd(dow))wkmap[key].we+=raw;else wkmap[key].wd+=dayNet(dow,raw);});
   let gen=0;Object.keys(wkmap).forEach(k=>{const w=wkmap[k],wdH=w.wd/60,weH=w.we/60,otH=Math.max(0,wdH-40);gen+=otH*1.5+weH*1.5;});
   return gen;
 }
@@ -1200,21 +1196,21 @@ function renderAtt(){
   $("ymLabel").textContent=ymText(curYM);
   const tabs=$("attTabs");tabs.innerHTML="";
   ATT_PEOPLE.forEach(p=>{const b=document.createElement("button");b.className="atttab"+(p===attPerson?" on":"");b.textContent=p;b.addEventListener("click",()=>{attPerson=p;renderAtt();});tabs.appendChild(b);});
-  const D=attData(attPerson,curYM);
-  let html=`<div class="attwrap"><div class="atthint">⌨️ 출퇴근은 숫자만 입력 — 예: <b>0900</b>→09:00, <b>2200</b>→22:00.<br>· <b>평일</b>은 점심 <b>1시간 휴게</b>를 빼고 인정됩니다 (예: 08:00~15:00 → 6시간).<br>· <b>주말(토·일)</b> 근무는 그 시간의 <b>1.5배</b>가 대휴로 발생합니다.<br>· 대휴 쓴 날은 “대휴” 칸에 시간을 적으면 잔여에서 자동 차감됩니다.</div>`;
+  const D=attData(attPerson,curYM), statMap={};D.wkStat.forEach(s=>statMap[s.num]=s);
+  let html=`<div class="attwrap"><div class="atthint">⌨️ 출퇴근은 숫자만 입력 — 예: <b>0900</b>→09:00, <b>2200</b>→22:00.<br>· 주 합계는 <b>실제 달력 주(월~일)</b> 기준입니다. 달을 걸친 날(연한 글씨)도 그 주에 함께 계산됩니다.<br>· <b>평일</b>은 점심 <b>1시간</b>을 빼고 인정(예: 08:00~15:00 → 6시간). <b>주말</b> 근무는 <b>1.5배</b> 대휴.<br>· 대휴 쓴 날은 “대휴” 칸에 시간을 적으면 잔여에서 자동 차감됩니다.</div>`;
   html+=`<table class="att"><thead><tr><th>날짜</th><th>출근</th><th>퇴근</th><th>근무시간</th><th>대휴 사용(시간)</th></tr></thead><tbody>`;
   let lastWk=0;
   D.dayInfo.forEach(r=>{
-    if(lastWk!==0&&r.wk!==lastWk)html+=wkRow(lastWk,D);
-    lastWk=r.wk;
+    if(lastWk!==0&&r.wknum!==lastWk)html+=wkRow(statMap[lastWk]);
+    lastWk=r.wknum;
     const dc=r.dow==="일"?"sun":r.dow==="토"?"sat":"";
-    html+=`<tr><td class="dt ${dc}">${r.d.slice(5)} (${r.dow})</td>`+
+    html+=`<tr><td class="dt ${dc} ${r.inMonth?'':'out'}">${r.d.slice(5)} (${r.dow})</td>`+
       `<td><input type="text" inputmode="numeric" class="tin" data-d="${r.d}" data-f="in" value="${r.in}" maxlength="5" placeholder="--:--" ${RO?'disabled':''}></td>`+
       `<td><input type="text" inputmode="numeric" class="tin" data-d="${r.d}" data-f="out" value="${r.out}" maxlength="5" placeholder="--:--" ${RO?'disabled':''}></td>`+
       `<td class="wh" data-wh="${r.d}">${whCell(r)}</td>`+
       `<td><input type="number" class="cin ${r.comp?'has':''}" data-d="${r.d}" min="0" step="0.5" value="${r.comp||''}" placeholder="0" ${RO?'disabled':''}></td></tr>`;
   });
-  if(lastWk!==0)html+=wkRow(lastWk,D);
+  if(lastWk!==0)html+=wkRow(statMap[lastWk]);
   html+=`</tbody></table>`;
   const B=compBalance(attPerson);
   html+=`<div class="attsum">
@@ -1225,7 +1221,6 @@ function renderAtt(){
     <div class="card rem"><b data-sum="rem">${B.balance.toFixed(1)}h</b><small>잔여 대휴(이월+발생−사용)</small></div>
   </div></div>`;
   $("attBody").innerHTML=html;
-  // 시간 입력: 숫자 타이핑 → 입력 후 자동 HH:MM
   $("attBody").querySelectorAll('input.tin').forEach(inp=>{
     inp.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();inp.blur();}});
     inp.addEventListener("change",()=>{
@@ -1235,7 +1230,6 @@ function renderAtt(){
       save();recalcAtt();
     });
   });
-  // 대휴 사용(날짜별)
   $("attBody").querySelectorAll('input.cin').forEach(cin=>cin.addEventListener("input",()=>{
     const d=cin.dataset.d,v=Math.max(0,parseFloat(cin.value)||0);
     compUse[attPerson]=compUse[attPerson]||{};
