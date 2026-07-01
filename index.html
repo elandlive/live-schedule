@@ -710,7 +710,7 @@ let _uid=0; const uid=()=>"r"+(Date.now().toString(36))+(_uid++);
 
 function seedRows(){return SEED.map(r=>({id:uid(),date:r[0],time:r[2],brand:r[3],platform:r[4],pd:r[5],host:r[6],revenue:r[7],status:r[8],studio:"",crew:2,staff:[],roles:{},pin:{},ban:{}}));}
 
-let curYM="2026.07", view="schedule", attPerson="박채은", att={}, compUse={}, memos={};
+let curYM="2026.07", view="schedule", attPerson="박채은", att={}, compUse={}, memos={}, compCarry={};
 const ATT_PEOPLE=["박채은","박준우","김수정","신권수"];
 let rows, unavail, evBudget=40;
 const _norm=r=>({staff:[],studio:"",crew:2,roles:{},pin:{},ban:{},...r,crew:(r.crew===1||r.crew===2)?r.crew:2,staff:Array.isArray(r.staff)?r.staff:[],roles:r.roles&&typeof r.roles==="object"?r.roles:{},pin:r.pin&&typeof r.pin==="object"?r.pin:{},ban:r.ban&&typeof r.ban==="object"?r.ban:{}});
@@ -719,7 +719,7 @@ const _score=o=>o.rows.reduce((s,r)=>s+(r.studio?1:0)+((Array.isArray(r.staff)&&
 let _best=null;
 if(SNAP&&Array.isArray(SNAP.rows)){_best={o:SNAP,sc:1};}
 else[KEY,"studio_month_2607_v4","studio_month_2607_v3"].forEach(k=>{const o=_read(k);if(!o)return;const sc=_score(o);if(!_best||sc>_best.sc)_best={o,sc};});
-if(_best){rows=(_best.o.rows||[]).map(_norm);unavail=_best.o.unavail&&typeof _best.o.unavail==="object"?_best.o.unavail:{};if(Number.isFinite(_best.o.evBudget))evBudget=_best.o.evBudget;att=_best.o.att&&typeof _best.o.att==="object"?_best.o.att:{};compUse=_best.o.compUse&&typeof _best.o.compUse==="object"?_best.o.compUse:{};memos=_best.o.memos&&typeof _best.o.memos==="object"?_best.o.memos:{};if(typeof _best.o.curYM==="string")curYM=_best.o.curYM;}
+if(_best){rows=(_best.o.rows||[]).map(_norm);unavail=_best.o.unavail&&typeof _best.o.unavail==="object"?_best.o.unavail:{};if(Number.isFinite(_best.o.evBudget))evBudget=_best.o.evBudget;att=_best.o.att&&typeof _best.o.att==="object"?_best.o.att:{};compUse=_best.o.compUse&&typeof _best.o.compUse==="object"?_best.o.compUse:{};memos=_best.o.memos&&typeof _best.o.memos==="object"?_best.o.memos:{};compCarry=_best.o.compCarry&&typeof _best.o.compCarry==="object"?_best.o.compCarry:{};if(typeof _best.o.curYM==="string")curYM=_best.o.curYM;}
 else{
   rows=seedRows();unavail={};
   try{const o2=JSON.parse(localStorage.getItem("studio_month_2607_v2"));
@@ -740,7 +740,7 @@ const isComplete=r=>r.staff.some(n=>roleOfR(r,n)==="cam")&&r.staff.some(n=>roleO
 function platKey(p){p=p||"";if(p.indexOf("네이버")>=0)return "naver";if(p.indexOf("지그재그")>=0)return "zigzag";if(p.indexOf("공홈")>=0)return "gong";if(p.indexOf("키디키디")>=0||p.indexOf("이랜드몰")>=0)return "orange";return "none";}
 const catOf=r=>extView?platKey(r.platform):(isComplete(r)?platKey(r.platform):"none");
 const save=()=>{
-  if(!SNAP){try{localStorage.setItem(KEY,JSON.stringify({v:5,rows,unavail,evBudget,att,compUse,memos,curYM}));}catch(e){}}
+  if(!SNAP){try{localStorage.setItem(KEY,JSON.stringify({v:5,rows,unavail,evBudget,att,compUse,memos,compCarry,curYM}));}catch(e){}}
   if(fbRef&&MODE==="admin"&&!fbApplying){clearTimeout(fbWriteT);fbWriteT=setTimeout(()=>{const ts=Date.now();myLastTs=ts;
     fbRef.set({rows,unavail,evBudget,att,compUse,curYM,ts}).then(()=>fbStatus("실시간 반영됨","ok")).catch(e=>fbStatus("쓰기 실패: "+e.message,"err"));},450);}
 };
@@ -1179,8 +1179,22 @@ function recalcAtt(){
     const wc=body.querySelector(`[data-wkc="${wk}"]`);if(wc){wc.className=comp>0?"ot":"";wc.innerHTML=`${otH>0?`초과 ${otH.toFixed(1)}h `:''}${weH>0?`· 주말 ${weH.toFixed(1)}h `:''}→ <span class="comp">대휴 ${comp.toFixed(1)}h</span>`;}
   });
   const g=body.querySelector('[data-sum="gen"]');if(g)g.textContent=D.genComp.toFixed(1)+"h";
-  const u=body.querySelector('[data-sum="used"]');if(u)u.textContent=D.used.toFixed(1)+"h";
-  const rm=body.querySelector('[data-sum="rem"]');if(rm)rm.textContent=D.remain.toFixed(1)+"h";
+  const B=compBalance(attPerson);
+  const tg=body.querySelector('[data-sum="tgen"]');if(tg)tg.textContent=B.totalGen.toFixed(1)+"h";
+  const u=body.querySelector('[data-sum="used"]');if(u)u.textContent=B.used.toFixed(1)+"h";
+  const rm=body.querySelector('[data-sum="rem"]');if(rm)rm.textContent=B.balance.toFixed(1)+"h";
+}
+function allWeeksComp(person){
+  const A=att[person]||{}, wkmap={};
+  Object.keys(A).forEach(d=>{const a=A[d];if(!a||!a.in||!a.out)return;const raw=workMin(a.in,a.out);if(!raw)return;const dow=dowOf(d),key=d.slice(0,7)+"|"+wkOf(d);wkmap[key]=wkmap[key]||{wd:0,we:0};if(isWknd(dow))wkmap[key].we+=raw;else wkmap[key].wd+=dayNet(dow,raw);});
+  let gen=0;Object.keys(wkmap).forEach(k=>{const w=wkmap[k],wdH=w.wd/60,weH=w.we/60,otH=Math.max(0,wdH-40);gen+=otH*1.5+weH*1.5;});
+  return gen;
+}
+function compBalance(person){
+  const totalGen=allWeeksComp(person);
+  const used=(compUse[person])?Object.keys(compUse[person]).reduce((s,d)=>s+(+compUse[person][d]||0),0):0;
+  const carry=(+compCarry[person]||0);
+  return {totalGen,used,carry,balance:carry+totalGen-used};
 }
 function renderAtt(){
   $("ymLabel").textContent=ymText(curYM);
@@ -1202,10 +1216,13 @@ function renderAtt(){
   });
   if(lastWk!==0)html+=wkRow(lastWk,D);
   html+=`</tbody></table>`;
+  const B=compBalance(attPerson);
   html+=`<div class="attsum">
-    <div class="card gen"><b data-sum="gen">${D.genComp.toFixed(1)}h</b><small>이번 달 발생 대휴</small></div>
-    <div class="card"><b data-sum="used">${D.used.toFixed(1)}h</b><small>사용 대휴(날짜별 합)</small></div>
-    <div class="card rem"><b data-sum="rem">${D.remain.toFixed(1)}h</b><small>잔여 대휴</small></div>
+    <div class="usebox">이월 대휴(사이트 사용 전) <input type="number" id="carryInput" min="0" step="0.5" value="${B.carry||''}" placeholder="0"> h</div>
+    <div class="card gen"><b data-sum="gen">${D.genComp.toFixed(1)}h</b><small>이번 달 발생</small></div>
+    <div class="card"><b data-sum="tgen">${B.totalGen.toFixed(1)}h</b><small>누적 발생(전체 달)</small></div>
+    <div class="card"><b data-sum="used">${B.used.toFixed(1)}h</b><small>누적 사용</small></div>
+    <div class="card rem"><b data-sum="rem">${B.balance.toFixed(1)}h</b><small>잔여 대휴(이월+발생−사용)</small></div>
   </div></div>`;
   $("attBody").innerHTML=html;
   // 시간 입력: 숫자 타이핑 → 입력 후 자동 HH:MM
@@ -1226,6 +1243,7 @@ function renderAtt(){
     cin.classList.toggle("has",!!v);
     save();recalcAtt();
   }));
+  const ci=$("carryInput");if(ci)ci.addEventListener("input",()=>{const v=Math.max(0,parseFloat(ci.value)||0);if(v)compCarry[attPerson]=v;else delete compCarry[attPerson];save();recalcAtt();});
 }
 
 /* ---------- 모드 적용(공유 링크) ---------- */
@@ -1234,6 +1252,7 @@ if($("autoToggle"))$("autoToggle").addEventListener("click",()=>{const a=$("auto
 
 /* ---------- 실시간(Firebase) ---------- */
 function fbStatus(msg,cls){const el=$("fbStatus");if(!el)return;el.className="fbpill show "+(cls||"mut");el.textContent=(cls==="ok"?"● ":cls==="err"?"▲ ":"○ ")+msg;}
+function mergeAtt(a,b){a=a&&typeof a==="object"?a:{};b=b&&typeof b==="object"?b:{};const o={};new Set([...Object.keys(a),...Object.keys(b)]).forEach(p=>{o[p]={...(a[p]&&typeof a[p]==="object"?a[p]:{}),...(b[p]&&typeof b[p]==="object"?b[p]:{})};});return o;}
 function applyRemote(v){
   if(!v||!Array.isArray(v.rows))return;
   fbApplying=true;
@@ -1243,11 +1262,12 @@ function applyRemote(v){
   att=v.att&&typeof v.att==="object"?v.att:{};
   compUse=v.compUse&&typeof v.compUse==="object"?v.compUse:{};
   memos=v.memos&&typeof v.memos==="object"?v.memos:{};
+  compCarry=v.compCarry&&typeof v.compCarry==="object"?v.compCarry:{};
   fbApplying=false;
   if($("evBudget"))$("evBudget").value=evBudget;
   view==="att"?renderAtt():render();
 }
-function fbPush(){const ts=Date.now();myLastTs=ts;return fbRef.set({rows,unavail,evBudget,att,compUse,memos,curYM,ts});}
+function fbPush(){const ts=Date.now();myLastTs=ts;return fbRef.set({rows,unavail,evBudget,att,compUse,memos,compCarry,curYM,ts});}
 function fbInit(tries){
   if(!FBCFG||!FBCFG.config||!FBCFG.roomId)return;
   if(typeof firebase==="undefined"){if((tries||0)<30){fbStatus("실시간 준비중…","mut");setTimeout(()=>fbInit((tries||0)+1),200);return;}fbStatus("연결 실패(인터넷 확인)","err");return;}
@@ -1259,12 +1279,19 @@ function fbInit(tries){
       const v=snap.val();
       if(MODE==="admin"){
         if(!fbBoot){fbBoot=true;
-          const localScore=_score({rows});
-          if(localScore===0&&v&&Array.isArray(v.rows)&&v.rows.length){applyRemote(v);fbStatus("실시간 연결됨 · 서버 내용 불러옴","ok");}
-          else{fbPush().then(()=>fbStatus("실시간 연결됨 · 내 내용 업로드","ok")).catch(e=>fbStatus("업로드 실패: "+e.message,"err"));}
+          if(v&&typeof v==="object"){
+            if(Array.isArray(v.rows)&&v.rows.length&&_score({rows:v.rows})>_score({rows}))rows=v.rows.map(_norm);
+            if(v.unavail&&typeof v.unavail==="object"&&!Object.keys(unavail).length)unavail=v.unavail;
+            att=mergeAtt(v.att,att);compUse=mergeAtt(v.compUse,compUse);
+            memos={...(v.memos&&typeof v.memos==="object"?v.memos:{}),...memos};
+            compCarry={...(v.compCarry&&typeof v.compCarry==="object"?v.compCarry:{}),...compCarry};
+          }
+          if($("evBudget"))$("evBudget").value=evBudget;
+          view==="att"?renderAtt():render();
+          fbPush().then(()=>fbStatus("실시간 연결됨 · 동기화 완료","ok")).catch(e=>fbStatus("업로드 실패: "+e.message,"err"));
           return;
         }
-        return; // 관리자: 서버가 내 화면을 자동으로 덮어쓰지 않음(내 것이 기준)
+        return; // 관리자: 이후 서버가 내 화면을 자동으로 덮어쓰지 않음
       }
       if(v&&Array.isArray(v.rows)){applyRemote(v);fbStatus("최신으로 업데이트됨","ok");}
     },err=>fbStatus("연결 오류: 규칙 확인","err"));
@@ -1281,7 +1308,7 @@ function fillLinks(){
   if(st){st.className="rtstate "+(on?"on":"off");st.textContent=on?"● 실시간 동기화 켜짐 — 수정 즉시 모든 링크에 반영됩니다.":"○ 실시간 미연결 — ⚡ 실시간 동기화 설정에서 연결하세요.";}
 }
 function buildShare(mode){
-  const data={rows,unavail,evBudget,att,compUse,memos,curYM};
+  const data={rows,unavail,evBudget,att,compUse,memos,compCarry,curYM};
   let html=document.documentElement.outerHTML;
   html=html.replace(/<script>window\.__SNAP__=[\s\S]*?<\/script>\n?/,"");
   let inj=`window.__SNAP__=${JSON.stringify(data)};window.__MODE__=${JSON.stringify(mode)};`;
