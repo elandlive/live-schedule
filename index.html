@@ -1153,8 +1153,8 @@ function fmtTime(raw){
   return String(h).padStart(2,"0")+":"+String(m).padStart(2,"0");
 }
 const isWknd=dow=>dow==="토"||dow==="일";
-function dayNet(dow,raw){return isWknd(dow)?raw:(raw>=540?raw-60:raw);}  // 평일 9h↑ → 휴게1h 공제
-function whCell(r){if(!r.raw)return "-";if(r.wknd)return hm(r.raw)+' <span class="tag we">주말</span>';if(r.raw>=540)return hm(r.net)+' <span class="tag br">휴게-1h</span>';return hm(r.net);}
+function dayNet(dow,raw){return isWknd(dow)?raw:(raw>60?raw-60:raw);}  // 평일: 점심 1시간 공제
+function whCell(r){if(!r.raw)return "-";if(r.wknd)return hm(r.raw)+' <span class="tag we">주말</span>';if(r.raw>60)return hm(r.net)+' <span class="tag br">휴게-1h</span>';return hm(r.net);}
 function attData(person,ym){
   const dates=monthDates(ym), wd={}, we={};
   const dayInfo=dates.map(d=>{const a=(att[person]&&att[person][d])||{};const raw=(a.in&&a.out)?workMin(a.in,a.out):0;const dow=dowOf(d),wk=wkOf(d),wknd=isWknd(dow),net=dayNet(dow,raw);
@@ -1201,7 +1201,7 @@ function renderAtt(){
   const tabs=$("attTabs");tabs.innerHTML="";
   ATT_PEOPLE.forEach(p=>{const b=document.createElement("button");b.className="atttab"+(p===attPerson?" on":"");b.textContent=p;b.addEventListener("click",()=>{attPerson=p;renderAtt();});tabs.appendChild(b);});
   const D=attData(attPerson,curYM);
-  let html=`<div class="attwrap"><div class="atthint">⌨️ 출퇴근은 숫자만 입력 — 예: <b>0900</b>→09:00, <b>2200</b>→22:00.<br>· <b>평일</b>은 9시간 근무 시 휴게 1시간을 빼고 <b>8시간</b>으로 인정됩니다.<br>· <b>주말(토·일)</b> 근무는 그 시간의 <b>1.5배</b>가 대휴로 발생합니다.<br>· 대휴 쓴 날은 “대휴” 칸에 시간을 적으면 잔여에서 자동 차감됩니다.</div>`;
+  let html=`<div class="attwrap"><div class="atthint">⌨️ 출퇴근은 숫자만 입력 — 예: <b>0900</b>→09:00, <b>2200</b>→22:00.<br>· <b>평일</b>은 점심 <b>1시간 휴게</b>를 빼고 인정됩니다 (예: 08:00~15:00 → 6시간).<br>· <b>주말(토·일)</b> 근무는 그 시간의 <b>1.5배</b>가 대휴로 발생합니다.<br>· 대휴 쓴 날은 “대휴” 칸에 시간을 적으면 잔여에서 자동 차감됩니다.</div>`;
   html+=`<table class="att"><thead><tr><th>날짜</th><th>출근</th><th>퇴근</th><th>근무시간</th><th>대휴 사용(시간)</th></tr></thead><tbody>`;
   let lastWk=0;
   D.dayInfo.forEach(r=>{
