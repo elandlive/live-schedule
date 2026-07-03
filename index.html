@@ -116,6 +116,19 @@
   .mmemo{margin:6px 0 0;font-size:12.5px;color:#3f4a63;background:#fff8e6;border:1px solid #f0e2b8;border-radius:9px;padding:7px 11px;cursor:pointer;white-space:pre-wrap;}
   .mmemo.empty{color:#aab0bf;background:none;border:1px dashed var(--line);}
   body.ext .daymemo,body.ext .mmemo{display:none!important;}
+  /* 대휴 표시 */
+  .leaves{display:inline-flex;flex-wrap:wrap;gap:4px;margin:6px 0 0 10px;vertical-align:middle;}
+  .mleaves{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0 0;}
+  .lvchip{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:#e9f7ef;color:#1f8a4c;border:1px solid #bfe6cf;}
+  .lvchip.am{background:#fff4e0;color:#b7791f;border-color:#f0dcae;} .lvchip.pm{background:#e9effc;color:#3a63c0;border-color:#c3d2f4;}
+  .lvadd{font-size:11px;color:#8a6a1f;background:#fffbe9;border:1px dashed #e6d18f;border-radius:8px;padding:2px 8px;cursor:pointer;margin-left:6px;}
+  body.ext .leaves,body.ext .mleaves,body.ext .lvadd{display:none!important;}
+  .lvlist{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;min-height:8px;}
+  .lvlist .lvchip{cursor:default;} .lvlist .lvchip b{cursor:pointer;margin-left:6px;color:#c0392b;}
+  .lvlabel{font-size:12px;color:var(--muted);margin:8px 0 6px;font-weight:700;}
+  .lvrow{display:flex;flex-wrap:wrap;gap:6px;}
+  .lvrow button{border:1px solid var(--line);background:#fff;border-radius:9px;padding:7px 12px;font-size:13px;cursor:pointer;}
+  .lvrow button.on{background:var(--ink);color:#fff;border-color:var(--ink);}
   @media(max-width:640px){
     #schedView .board{max-height:none;overflow:visible;border:none;background:none;box-shadow:none;padding:0;}
     .grid{display:none;} .mlist{display:block;}
@@ -160,7 +173,7 @@
   .atthint{font-size:12px;color:var(--muted);background:#f4f6fb;border:1px solid var(--line);border-radius:9px;padding:8px 12px;margin-bottom:12px;line-height:1.6;}
   table.att td.wh{font-family:var(--mono);font-weight:700;}
   table.att .tag{font-family:var(--sans,inherit);font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:20px;vertical-align:middle;}
-  table.att .tag.we{background:#fdeef0;color:#d6336c;} table.att .tag.br{background:#eef2f8;color:#5566aa;} table.att .tag.ot{background:#e7f6ec;color:#1f8a4c;}
+  table.att .tag.we{background:#fdeef0;color:#d6336c;} table.att .tag.br{background:#eef2f8;color:#5566aa;} table.att .tag.ot{background:#e7f6ec;color:#1f8a4c;} table.att .tag.nt{background:#ede9fd;color:#6b46c1;}
   tr.wkrow td{background:#f7f9ff;font-weight:700;color:#2c3550;border-top:2px solid #dfe6f5;}
   tr.wkrow td.ot{color:#c0392b;} tr.wkrow td.comp{color:#1f8a4c;}
   .attsum{display:flex;flex-wrap:wrap;gap:12px;margin-top:14px;align-items:center;}
@@ -497,6 +510,23 @@
   <p class="sub">실시간 동기화가 켜져 있으면, 어느 기기에서 보든 같은 내용이 즉시 반영됩니다. (Firebase 무료 범위로 충분)</p>
 </div></div>
 
+<div class="sharemenu" id="leaveModal"><div class="sharecard">
+  <button class="x" id="lvX">✕</button>
+  <h3>🌴 대휴 · <span id="lvDate"></span></h3>
+  <div id="lvList" class="lvlist"></div>
+  <div class="lvpick">
+    <div class="lvlabel">누가</div>
+    <div class="lvrow" id="lvPeople"></div>
+    <div class="lvlabel">언제</div>
+    <div class="lvrow" id="lvTypes">
+      <button data-t="full" class="lvt on">대휴(종일)</button>
+      <button data-t="am" class="lvt">오전대휴</button>
+      <button data-t="pm" class="lvt">오후대휴</button>
+    </div>
+    <button class="primary" id="lvAdd" style="margin-top:12px;">추가</button>
+  </div>
+</div></div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -714,7 +744,7 @@ let _uid=0; const uid=()=>"r"+(Date.now().toString(36))+(_uid++);
 
 function seedRows(){return SEED.map(r=>({id:uid(),date:r[0],time:r[2],brand:r[3],platform:r[4],pd:r[5],host:r[6],revenue:r[7],status:r[8],studio:"",crew:2,staff:[],roles:{},pin:{},ban:{}}));}
 
-let curYM="2026.07", view="schedule", attPerson="박채은", att={}, compUse={}, memos={}, compCarry={};
+let curYM="2026.07", view="schedule", attPerson="박채은", att={}, compUse={}, memos={}, compCarry={}, leaves={};
 const ATT_PEOPLE=["박채은","박준우","김수정","신권수"];
 let rows, unavail, evBudget=40;
 const _norm=r=>({staff:[],studio:"",crew:2,roles:{},pin:{},ban:{},...r,crew:(r.crew===1||r.crew===2)?r.crew:2,staff:Array.isArray(r.staff)?r.staff:[],roles:r.roles&&typeof r.roles==="object"?r.roles:{},pin:r.pin&&typeof r.pin==="object"?r.pin:{},ban:r.ban&&typeof r.ban==="object"?r.ban:{}});
@@ -723,7 +753,7 @@ const _score=o=>o.rows.reduce((s,r)=>s+(r.studio?1:0)+((Array.isArray(r.staff)&&
 let _best=null;
 if(SNAP&&Array.isArray(SNAP.rows)){_best={o:SNAP,sc:1};}
 else[KEY,"studio_month_2607_v4","studio_month_2607_v3"].forEach(k=>{const o=_read(k);if(!o)return;const sc=_score(o);if(!_best||sc>_best.sc)_best={o,sc};});
-if(_best){rows=(_best.o.rows||[]).map(_norm);unavail=_best.o.unavail&&typeof _best.o.unavail==="object"?_best.o.unavail:{};if(Number.isFinite(_best.o.evBudget))evBudget=_best.o.evBudget;att=_best.o.att&&typeof _best.o.att==="object"?_best.o.att:{};compUse=_best.o.compUse&&typeof _best.o.compUse==="object"?_best.o.compUse:{};memos=_best.o.memos&&typeof _best.o.memos==="object"?_best.o.memos:{};compCarry=_best.o.compCarry&&typeof _best.o.compCarry==="object"?_best.o.compCarry:{};if(typeof _best.o.curYM==="string")curYM=_best.o.curYM;}
+if(_best){rows=(_best.o.rows||[]).map(_norm);unavail=_best.o.unavail&&typeof _best.o.unavail==="object"?_best.o.unavail:{};if(Number.isFinite(_best.o.evBudget))evBudget=_best.o.evBudget;att=_best.o.att&&typeof _best.o.att==="object"?_best.o.att:{};compUse=_best.o.compUse&&typeof _best.o.compUse==="object"?_best.o.compUse:{};memos=_best.o.memos&&typeof _best.o.memos==="object"?_best.o.memos:{};compCarry=_best.o.compCarry&&typeof _best.o.compCarry==="object"?_best.o.compCarry:{};leaves=_best.o.leaves&&typeof _best.o.leaves==="object"?_best.o.leaves:{};if(typeof _best.o.curYM==="string")curYM=_best.o.curYM;}
 else{
   rows=seedRows();unavail={};
   try{const o2=JSON.parse(localStorage.getItem("studio_month_2607_v2"));
@@ -744,7 +774,7 @@ const isComplete=r=>r.staff.some(n=>roleOfR(r,n)==="cam")&&r.staff.some(n=>roleO
 function platKey(p){p=p||"";if(p.indexOf("리테일")>=0)return "retail";if(p.indexOf("네이버")>=0)return "naver";if(p.indexOf("지그재그")>=0)return "zigzag";if(p.indexOf("공홈")>=0)return "gong";if(p.indexOf("키디키디")>=0||p.indexOf("이랜드몰")>=0)return "orange";return "none";}
 const catOf=r=>extView?platKey(r.platform):(isComplete(r)?platKey(r.platform):"none");
 const save=()=>{
-  if(!SNAP){try{localStorage.setItem(KEY,JSON.stringify({v:5,rows,unavail,evBudget,att,compUse,memos,compCarry,curYM}));}catch(e){}}
+  if(!SNAP){try{localStorage.setItem(KEY,JSON.stringify({v:5,rows,unavail,evBudget,att,compUse,memos,compCarry,leaves,curYM}));}catch(e){}}
   if(fbRef&&MODE==="admin"&&!fbApplying){clearTimeout(fbWriteT);fbWriteT=setTimeout(()=>{const ts=Date.now();myLastTs=ts;
     fbRef.set({rows,unavail,evBudget,att,compUse,curYM,ts}).then(()=>fbStatus("실시간 반영됨","ok")).catch(e=>fbStatus("쓰기 실패: "+e.message,"err"));},450);}
 };
@@ -771,6 +801,27 @@ function layout(items){
 
 const esc=s=>(s||"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function editMemo(d){if(RO)return;const cur=memos[d]||"";const v=prompt(`${d.slice(5)} 메모`,cur);if(v===null)return;const t=v.trim();if(t)memos[d]=t;else delete memos[d];save();view==="att"?renderAtt():render();}
+const LEAVE_LABEL={full:"대휴",am:"오전대휴",pm:"오후대휴"};
+function leaveChips(d,mobile){
+  if(MODE==="ext")return "";
+  const arr=leaves[d]||[];
+  let s=arr.map(L=>`<span class="lvchip ${L.type}">${L.who} ${LEAVE_LABEL[L.type]}</span>`).join("");
+  if(!RO)s+=`<span class="lvadd" data-lv="${d}">＋대휴</span>`;
+  if(!s)return "";
+  return mobile?`<div class="mleaves">${s}</div>`:`<span class="leaves">${s}</span>`;
+}
+let lvEditDate=null, lvWho=null, lvType="full";
+function renderLvList(){const arr=leaves[lvEditDate]||[];const el=$("lvList");if(!el)return;
+  el.innerHTML=arr.length?arr.map((L,i)=>`<span class="lvchip ${L.type}">${L.who} ${LEAVE_LABEL[L.type]} <b data-i="${i}">✕</b></span>`).join(""):`<span style="color:var(--muted);font-size:12px;">등록된 대휴 없음</span>`;
+  el.querySelectorAll("b[data-i]").forEach(b=>b.addEventListener("click",()=>{const i=+b.dataset.i;leaves[lvEditDate].splice(i,1);if(!leaves[lvEditDate].length)delete leaves[lvEditDate];save();renderLvList();render();}));
+}
+function openLeave(d){if(RO)return;lvEditDate=d;lvWho=null;lvType="full";
+  $("lvDate").textContent=d.slice(5);
+  const pe=$("lvPeople");pe.innerHTML=STAFF.map(n=>`<button data-who="${n}">${n}</button>`).join("");
+  pe.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{lvWho=b.dataset.who;pe.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));}));
+  $("lvTypes").querySelectorAll("button").forEach(b=>{b.classList.toggle("on",b.dataset.t==="full");b.onclick=()=>{lvType=b.dataset.t;$("lvTypes").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));};});
+  renderLvList();$("leaveModal").classList.add("show");
+}
 function render(){
   $("ymLabel").textContent=ymText(curYM);
   const {stu,stf}=conflicts();
@@ -799,7 +850,7 @@ function render(){
     const dimmed=(hi!=="all"&&cat!==hi)||(staffHi&&!r.staff.includes(staffHi));
     const el=document.createElement("div");
     el.className="blk p-"+cat+(conf?" conflict":"")+(dimmed?" dim":"");
-    el.title=`${r.time} ${r.brand} (${r.studio?r.studio+"룸":"미배정"})\n쇼호스트: ${r.host||"-"}\n스텝: ${r.staff.length?r.staff.join(", "):"미배정"}`+(conf?"\n⚠ "+(stu.has(r.id)?"스튜디오 ":"")+(stf.has(r.id)?"스텝 ":"")+"겹침":"");
+    el.title=extView?`${r.time} ${r.brand} (${r.studio?r.studio+"룸":"미배정"})`:`${r.time} ${r.brand} (${r.studio?r.studio+"룸":"미배정"})\n쇼호스트: ${r.host||"-"}\n스텝: ${r.staff.length?r.staff.join(", "):"미배정"}`+(conf?"\n⚠ "+(stu.has(r.id)?"스튜디오 ":"")+(stf.has(r.id)?"스텝 ":"")+"겹침":"");
     const chan=(r.platform&&r.platform!=="-")?r.platform:"";
     const rev=r.revenue?Number(r.revenue).toLocaleString("ko-KR")+"만원":"";
     const hasLock=(r.pin&&Object.keys(r.pin).length)||(r.ban&&Object.keys(r.ban).length);
@@ -829,9 +880,10 @@ function render(){
     const w=dowOf(d),wc=w==="토"?"sat":w==="일"?"sun":"";
     const dh=document.createElement("div");dh.className="dayhead";
     const memo=memos[d]||"", memoHtml=(MODE==="ext")?"":`<div class="daymemo${memo?'':' empty'}" data-memo="${d}">${memo?esc(memo):'＋ 메모'}</div>`;
-    dh.innerHTML=`<div class="datecell dhd"><div class="d">${d.slice(5)}</div><div class="w ${wc}">${w}요일</div><div class="prog">${done}/${drows.length} 배정</div></div><div class="dhtrack">${memoHtml}</div>`;
+    dh.innerHTML=`<div class="datecell dhd"><div class="d">${d.slice(5)}</div><div class="w ${wc}">${w}요일</div><div class="prog">${done}/${drows.length} 배정</div></div><div class="dhtrack">${memoHtml}${leaveChips(d,false)}</div>`;
     grid.appendChild(dh);
     const dmm=dh.querySelector(".daymemo[data-memo]");if(dmm)dmm.addEventListener("click",()=>editMemo(d));
+    const dla=dh.querySelector(".lvadd[data-lv]");if(dla)dla.addEventListener("click",()=>openLeave(d));
     STUD.forEach(([sv,slab])=>{
       const laneRows=drows.filter(r=>(r.studio||"")===sv);
       if(!laneRows.length)return;
@@ -866,8 +918,9 @@ function buildMobileList(mrows,stu,stf){
   dates.forEach(d=>{
     const dow=dowOf(d), day=document.createElement("div");day.className="mday";
     const memo=memos[d]||"", memoHtml=(MODE==="ext")?"":`<div class="mmemo${memo?'':' empty'}" data-memo="${d}">${memo?"📝 "+esc(memo):'＋ 메모 추가'}</div>`;
-    day.innerHTML=`<div class="mdh ${dow==='일'?'sun':dow==='토'?'sat':''}">${d.slice(5)} (${dow}) · ${byDate[d].length}건</div>${memoHtml}`;
+    day.innerHTML=`<div class="mdh ${dow==='일'?'sun':dow==='토'?'sat':''}">${d.slice(5)} (${dow}) · ${byDate[d].length}건</div>${memoHtml}${leaveChips(d,true)}`;
     const mmm=day.querySelector(".mmemo[data-memo]");if(mmm)mmm.addEventListener("click",()=>editMemo(d));
+    const mla=day.querySelector(".lvadd[data-lv]");if(mla)mla.addEventListener("click",()=>openLeave(d));
     byDate[d].slice().sort((a,b)=>span(a.time)[0]-span(b.time)[0]).forEach(r=>{
       const conf=stu.has(r.id)||stf.has(r.id), cat=catOf(r);
       const card=document.createElement("div");card.className="mcard p-"+cat+(conf?" conf":"");
@@ -1131,7 +1184,7 @@ $("impGo").addEventListener("click",()=>{
 let tT;function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");clearTimeout(tT);tT=setTimeout(()=>t.classList.remove("show"),1700);}
 
 /* ---------- 월 이동 / 보기 전환 ---------- */
-function setView(v){view=v;
+function setView(v){if(v==="att"&&MODE==="ext")return;view=v;
   document.querySelectorAll(".vtab").forEach(t=>t.classList.toggle("on",t.dataset.v===v));
   $("schedView").style.display=v==="schedule"?"":"none";
   $("attView").style.display=v==="att"?"":"none";
@@ -1158,8 +1211,23 @@ function fmtTime(raw){
 }
 const isWknd=dow=>dow==="토"||dow==="일";
 function dayNet(dow,raw){return isWknd(dow)?raw:(raw>60?raw-60:raw);}  // 평일: 점심 1시간 공제
-function dayComp(dow,raw){if(!raw)return 0;if(isWknd(dow))return (raw/60)*1.5;const net=dayNet(dow,raw);const ot=Math.max(0,net-480);return (ot/60)*1.5;} // 평일 8h 초과분×1.5, 주말 전체×1.5
-function whCell(r){if(!r.raw)return "-";if(r.wknd)return hm(r.raw)+' <span class="tag we">주말</span>';const ot=Math.max(0,r.net-480);const brk=r.raw>60?' <span class="tag br">휴게-1h</span>':'';return hm(r.net)+brk+(ot>0?` <span class="tag ot">초과 ${(ot/60).toFixed(1)}h</span>`:'');}
+const NIGHT_START=1350; // 22:30
+function compParts(dow,inT,outT){
+  if(!inT||!outT)return {raw:0,net:0,nightH:0,dayOT:0,comp:0,wknd:isWknd(dow)};
+  const raw=workMin(inT,outT), wknd=isWknd(dow), net=dayNet(dow,raw);
+  if(wknd)return {raw,net,nightH:0,dayOT:0,comp:(raw/60)*1.5,wknd};
+  let outAbs=HHMM(outT);const inAbs=HHMM(inT);if(outAbs<inAbs)outAbs+=1440;
+  const nightMin=Math.max(0,outAbs-NIGHT_START), nightH=nightMin/60;   // 22:30 이후 = ×2
+  const dayOT=Math.max(0,(net-nightMin)/60-8);                          // 야간 제외 순근무 8h 초과 = ×1.5
+  return {raw,net,nightH,dayOT,comp:nightH*2+dayOT*1.5,wknd};
+}
+function dayComp(dow,inT,outT){return compParts(dow,inT,outT).comp;}
+function whCell(r){if(!r.raw)return "-";const p=compParts(r.dow,r.in,r.out);
+  if(p.wknd)return hm(r.raw)+' <span class="tag we">주말</span>';
+  const brk=r.raw>60?' <span class="tag br">휴게-1h</span>':'';
+  const nt=p.nightH>0?` <span class="tag nt">야간 ${p.nightH.toFixed(1)}h×2</span>`:'';
+  const ot=p.dayOT>0?` <span class="tag ot">초과 ${p.dayOT.toFixed(1)}h</span>`:'';
+  return hm(r.net)+brk+nt+ot;}
 function ymdToDate(d){const[y,m,dd]=d.split(".").map(Number);return new Date(y,m-1,dd);}
 function dateToYmd(dt){return `${dt.getFullYear()}.${String(dt.getMonth()+1).padStart(2,"0")}.${String(dt.getDate()).padStart(2,"0")}`;}
 function mondayOf(d){const dt=ymdToDate(d);const off=(dt.getDay()+6)%7;dt.setDate(dt.getDate()-off);return dt;}
@@ -1167,24 +1235,24 @@ function weekMonthKey(mon){const th=new Date(mon);th.setDate(th.getDate()+3);ret
 function monthWeeks(ym){let mon=mondayOf(ym+".01");mon.setDate(mon.getDate()-7);const weeks=[];for(let k=0;k<8;k++){if(weekMonthKey(mon)===ym){const dates=[];for(let i=0;i<7;i++){const dt=new Date(mon);dt.setDate(mon.getDate()+i);dates.push(dateToYmd(dt));}weeks.push(dates);}mon.setDate(mon.getDate()+7);}return weeks;}
 function attData(person,ym){
   const weeks=monthWeeks(ym), dayInfo=[], wkStat=[]; let genComp=0;
-  weeks.forEach((dates,idx)=>{const num=idx+1;let wd=0,we=0,wdOt=0,wComp=0;
-    dates.forEach(d=>{const a=(att[person]&&att[person][d])||{};const raw=(a.in&&a.out)?workMin(a.in,a.out):0;const dow=dowOf(d),wknd=isWknd(dow),net=dayNet(dow,raw);if(wknd)we+=raw;else{wd+=net;wdOt+=Math.max(0,net-480);}wComp+=dayComp(dow,raw);const comp=(compUse[person]&&compUse[person][d])||0;dayInfo.push({d,dow,wknum:num,in:a.in||"",out:a.out||"",raw,net,wknd,comp,inMonth:d.slice(0,7)===ym});});
-    genComp+=wComp;wkStat.push({num,wdH:wd/60,weH:we/60,otH:wdOt/60,comp:wComp});});
+  weeks.forEach((dates,idx)=>{const num=idx+1;let wd=0,we=0,wComp=0;
+    dates.forEach(d=>{const a=(att[person]&&att[person][d])||{};const raw=(a.in&&a.out)?workMin(a.in,a.out):0;const dow=dowOf(d),wknd=isWknd(dow),net=dayNet(dow,raw);if(wknd)we+=raw;else wd+=net;wComp+=dayComp(dow,a.in,a.out);const comp=(compUse[person]&&compUse[person][d])||0;dayInfo.push({d,dow,wknum:num,in:a.in||"",out:a.out||"",raw,net,wknd,comp,inMonth:d.slice(0,7)===ym});});
+    genComp+=wComp;wkStat.push({num,wdH:wd/60,weH:we/60,comp:wComp});});
   return {dayInfo,wkStat,genComp};
 }
 function wkRow(s){return `<tr class="wkrow"><td colspan="3">${s.num}주차 합계</td><td class="wh" data-wkh="${s.num}">평일 ${s.wdH.toFixed(1)}h</td>`+
-  `<td data-wkc="${s.num}" class="${s.comp>0?'ot':''}">${s.otH>0?`평일초과 ${s.otH.toFixed(1)}h `:''}${s.weH>0?`· 주말 ${s.weH.toFixed(1)}h `:''}→ <span class="comp">대휴 ${s.comp.toFixed(1)}h</span></td></tr>`;}
+  `<td data-wkc="${s.num}" class="${s.comp>0?'ot':''}">${s.weH>0?`주말 ${s.weH.toFixed(1)}h `:''}→ <span class="comp">대휴 ${s.comp.toFixed(1)}h</span></td></tr>`;}
 function recalcAtt(){
   const D=attData(attPerson,curYM), body=$("attBody");
   D.dayInfo.forEach(r=>{const c=body.querySelector(`[data-wh="${r.d}"]`);if(c)c.innerHTML=whCell(r);});
-  D.wkStat.forEach(s=>{const wh=body.querySelector(`[data-wkh="${s.num}"]`);if(wh)wh.textContent=`평일 ${s.wdH.toFixed(1)}h`;const wc=body.querySelector(`[data-wkc="${s.num}"]`);if(wc){wc.className=s.comp>0?"ot":"";wc.innerHTML=`${s.otH>0?`초과 ${s.otH.toFixed(1)}h `:''}${s.weH>0?`· 주말 ${s.weH.toFixed(1)}h `:''}→ <span class="comp">대휴 ${s.comp.toFixed(1)}h</span>`;}});
+  D.wkStat.forEach(s=>{const wh=body.querySelector(`[data-wkh="${s.num}"]`);if(wh)wh.textContent=`평일 ${s.wdH.toFixed(1)}h`;const wc=body.querySelector(`[data-wkc="${s.num}"]`);if(wc){wc.className=s.comp>0?"ot":"";wc.innerHTML=`${s.weH>0?`주말 ${s.weH.toFixed(1)}h `:''}→ <span class="comp">대휴 ${s.comp.toFixed(1)}h</span>`;}});
   const g=body.querySelector('[data-sum="gen"]');if(g)g.textContent=D.genComp.toFixed(1)+"h";
   const B=compBalance(attPerson);
   const tg=body.querySelector('[data-sum="tgen"]');if(tg)tg.textContent=B.totalGen.toFixed(1)+"h";
   const u=body.querySelector('[data-sum="used"]');if(u)u.textContent=B.used.toFixed(1)+"h";
   const rm=body.querySelector('[data-sum="rem"]');if(rm)rm.textContent=B.balance.toFixed(1)+"h";
 }
-function allWeeksComp(person){const A=att[person]||{};let gen=0;Object.keys(A).forEach(d=>{const a=A[d];if(!a||!a.in||!a.out)return;gen+=dayComp(dowOf(d),workMin(a.in,a.out));});return gen;}
+function allWeeksComp(person){const A=att[person]||{};let gen=0;Object.keys(A).forEach(d=>{const a=A[d];if(!a||!a.in||!a.out)return;gen+=dayComp(dowOf(d),a.in,a.out);});return gen;}
 function compBalance(person){
   const totalGen=allWeeksComp(person);
   const used=(compUse[person])?Object.keys(compUse[person]).reduce((s,d)=>s+(+compUse[person][d]||0),0):0;
@@ -1196,7 +1264,7 @@ function renderAtt(){
   const tabs=$("attTabs");tabs.innerHTML="";
   ATT_PEOPLE.forEach(p=>{const b=document.createElement("button");b.className="atttab"+(p===attPerson?" on":"");b.textContent=p;b.addEventListener("click",()=>{attPerson=p;renderAtt();});tabs.appendChild(b);});
   const D=attData(attPerson,curYM), statMap={};D.wkStat.forEach(s=>statMap[s.num]=s);
-  let html=`<div class="attwrap"><div class="atthint">⌨️ 출퇴근은 숫자만 입력 — 예: <b>0900</b>→09:00, <b>2200</b>→22:00.<br>· 주 합계는 <b>실제 달력 주(월~일)</b> 기준(달을 걸친 연한 글씨 날도 함께 표시).<br>· <b>평일</b>은 점심 <b>1시간</b> 제외 후 <b>하루 8시간 초과분 × 1.5</b>가 대휴로 발생. <b>주말</b> 근무는 전체 <b>× 1.5</b>.<br>· 대휴 쓴 날은 “대휴” 칸에 시간을 적으면 잔여에서 자동 차감됩니다.</div>`;
+  let html=`<div class="attwrap"><div class="atthint">⌨️ 출퇴근은 숫자만 입력 — 예: <b>0900</b>→09:00, <b>2200</b>→22:00.<br>· 주 합계는 <b>실제 달력 주(월~일)</b> 기준(달을 걸친 연한 글씨 날도 함께 표시).<br>· <b>평일</b>: 점심 1h 제외, 하루 8h 초과분 ×1.5, <b>22:30 이후 야간</b>은 ×2 대휴. <b>주말</b>은 전체 ×1.5.<br>· 대휴 쓴 날은 “대휴” 칸에 시간을 적으면 잔여에서 자동 차감됩니다.</div>`;
   html+=`<table class="att"><thead><tr><th>날짜</th><th>출근</th><th>퇴근</th><th>근무시간</th><th>대휴 사용(시간)</th></tr></thead><tbody>`;
   let lastWk=0;
   D.dayInfo.forEach(r=>{
@@ -1256,11 +1324,12 @@ function applyRemote(v){
   compUse=v.compUse&&typeof v.compUse==="object"?v.compUse:{};
   memos=v.memos&&typeof v.memos==="object"?v.memos:{};
   compCarry=v.compCarry&&typeof v.compCarry==="object"?v.compCarry:{};
+  leaves=v.leaves&&typeof v.leaves==="object"?v.leaves:{};
   fbApplying=false;
   if($("evBudget"))$("evBudget").value=evBudget;
   view==="att"?renderAtt():render();
 }
-function fbPush(){const ts=Date.now();myLastTs=ts;return fbRef.set({rows,unavail,evBudget,att,compUse,memos,compCarry,curYM,ts});}
+function fbPush(){const ts=Date.now();myLastTs=ts;return fbRef.set({rows,unavail,evBudget,att,compUse,memos,compCarry,leaves,curYM,ts});}
 function fbInit(tries){
   if(!FBCFG||!FBCFG.config||!FBCFG.roomId)return;
   if(typeof firebase==="undefined"){if((tries||0)<30){fbStatus("실시간 준비중…","mut");setTimeout(()=>fbInit((tries||0)+1),200);return;}fbStatus("연결 실패(인터넷 확인)","err");return;}
@@ -1278,6 +1347,7 @@ function fbInit(tries){
             att=mergeAtt(v.att,att);compUse=mergeAtt(v.compUse,compUse);
             memos={...(v.memos&&typeof v.memos==="object"?v.memos:{}),...memos};
             compCarry={...(v.compCarry&&typeof v.compCarry==="object"?v.compCarry:{}),...compCarry};
+            leaves={...(v.leaves&&typeof v.leaves==="object"?v.leaves:{}),...leaves};
           }
           if($("evBudget"))$("evBudget").value=evBudget;
           view==="att"?renderAtt():render();
@@ -1301,7 +1371,7 @@ function fillLinks(){
   if(st){st.className="rtstate "+(on?"on":"off");st.textContent=on?"● 실시간 동기화 켜짐 — 수정 즉시 모든 링크에 반영됩니다.":"○ 실시간 미연결 — ⚡ 실시간 동기화 설정에서 연결하세요.";}
 }
 function buildShare(mode){
-  const data={rows,unavail,evBudget,att,compUse,memos,compCarry,curYM};
+  const data={rows,unavail,evBudget,att,compUse,memos,compCarry,leaves,curYM};
   let html=document.documentElement.outerHTML;
   html=html.replace(/<script>window\.__SNAP__=[\s\S]*?<\/script>\n?/,"");
   let inj=`window.__SNAP__=${JSON.stringify(data)};window.__MODE__=${JSON.stringify(mode)};`;
@@ -1342,6 +1412,11 @@ if($("rtMenu")){
   });
 }
 if($("dpMenu")){$("dpX").addEventListener("click",()=>$("dpMenu").classList.remove("show"));$("dpMenu").addEventListener("click",e=>{if(e.target===$("dpMenu"))$("dpMenu").classList.remove("show");});}
+if($("leaveModal")){
+  $("lvX").addEventListener("click",()=>$("leaveModal").classList.remove("show"));
+  $("leaveModal").addEventListener("click",e=>{if(e.target===$("leaveModal"))$("leaveModal").classList.remove("show");});
+  $("lvAdd").addEventListener("click",()=>{if(!lvWho){toast("사람을 선택하세요");return;}leaves[lvEditDate]=leaves[lvEditDate]||[];leaves[lvEditDate].push({who:lvWho,type:lvType});save();renderLvList();render();toast(`${lvWho} ${LEAVE_LABEL[lvType]} 추가`);});
+}
 if($("fbStatus")&&MODE==="admin")$("fbStatus").addEventListener("click",()=>{fillLinks();$("shareMenu").classList.add("show");});
 fbInit();
 
